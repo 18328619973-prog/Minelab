@@ -15,14 +15,16 @@ class LocalStore {
     try {
       experiments
         ..clear()
-        ..addAll((jsonDecode(raw) as List).map((value) => _fromJson(value as Map<String, dynamic>)));
+        ..addAll((jsonDecode(raw) as List)
+            .map((value) => _fromJson(value as Map<String, dynamic>)));
     } on FormatException {
       experiments.clear();
     }
   }
 
   Future<void> save() async {
-    await _preferences?.setString(_key, jsonEncode(experiments.map(_toJson).toList()));
+    await _preferences?.setString(
+        _key, jsonEncode(experiments.map(_toJson).toList()));
   }
 
   Future<void> add(ExperimentInstance experiment) async {
@@ -36,26 +38,29 @@ class LocalStore {
         'name': experiment.name,
         'color': experiment.color.toARGB32(),
         'startedAt': experiment.startedAt.toIso8601String(),
+        'domain': experiment.domain.name,
         'status': experiment.status.name,
         'project': experiment.project,
         'cellLine': experiment.cellLine,
-        'steps': experiment.steps.map((step) => {
-              'id': step.id,
-              'experimentId': step.experimentId,
-              'title': step.title,
-              'description': step.description,
-              'stepType': step.stepType.name,
-              'plannedAt': step.plannedAt.toIso8601String(),
-              'timeMode': step.timeMode.name,
-              'offsetMinutes': step.offsetMinutes,
-              'dependsOnId': step.dependsOnId,
-              'linkedTool': step.linkedTool,
-              'status': step.status.name,
-              'actualStartTime': step.actualStartTime?.toIso8601String(),
-              'actualEndTime': step.actualEndTime?.toIso8601String(),
-              'notes': step.notes,
-              'result': step.result,
-            }).toList(),
+        'steps': experiment.steps
+            .map((step) => {
+                  'id': step.id,
+                  'experimentId': step.experimentId,
+                  'title': step.title,
+                  'description': step.description,
+                  'stepType': step.stepType.name,
+                  'plannedAt': step.plannedAt.toIso8601String(),
+                  'timeMode': step.timeMode.name,
+                  'offsetMinutes': step.offsetMinutes,
+                  'dependsOnId': step.dependsOnId,
+                  'linkedTool': step.linkedTool,
+                  'status': step.status.name,
+                  'actualStartTime': step.actualStartTime?.toIso8601String(),
+                  'actualEndTime': step.actualEndTime?.toIso8601String(),
+                  'notes': step.notes,
+                  'result': step.result,
+                })
+            .toList(),
       };
 
   ExperimentInstance _fromJson(Map<String, dynamic> json) => ExperimentInstance(
@@ -64,6 +69,8 @@ class LocalStore {
         name: json['name'] as String,
         color: Color(json['color'] as int),
         startedAt: DateTime.parse(json['startedAt'] as String),
+        domain: ExperimentDomain.values
+            .byName(json['domain'] as String? ?? 'biological'),
         status: ExperimentStatus.values.byName(json['status'] as String),
         project: json['project'] as String? ?? '',
         cellLine: json['cellLine'] as String? ?? '',
@@ -81,8 +88,12 @@ class LocalStore {
             dependsOnId: step['dependsOnId'] as String?,
             linkedTool: step['linkedTool'] as String?,
             status: StepStatus.values.byName(step['status'] as String),
-            actualStartTime: step['actualStartTime'] == null ? null : DateTime.parse(step['actualStartTime'] as String),
-            actualEndTime: step['actualEndTime'] == null ? null : DateTime.parse(step['actualEndTime'] as String),
+            actualStartTime: step['actualStartTime'] == null
+                ? null
+                : DateTime.parse(step['actualStartTime'] as String),
+            actualEndTime: step['actualEndTime'] == null
+                ? null
+                : DateTime.parse(step['actualEndTime'] as String),
             notes: step['notes'] as String? ?? '',
             result: step['result'] as String? ?? '',
           );

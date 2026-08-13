@@ -5,9 +5,3 @@ analyzer:
     - work/**
     - outputs/**
     - build/**
-*** Add File: README.md
-# MineLab
-
-Offline-first Flutter Android prototype for wet-lab experiment workflows.
-
-Phase 0.1 includes a Dashboard timeline, CCK-8 template instantiation, step completion, planned-time editing, relative-time metadata, and local persistence. Install Flutter/Android SDK, then run `flutter pub get`, `flutter analyze`, `flutter test`, and `flutter build apk --debug`.

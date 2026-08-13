@@ -10,10 +10,27 @@ import 'package:minelab/app/app.dart';
 import 'package:minelab/data/local_store.dart';
 
 void main() {
-  testWidgets('MineLab opens on the daily dashboard', (WidgetTester tester) async {
+  testWidgets('MineLab opens on the daily dashboard',
+      (WidgetTester tester) async {
     await tester.pumpWidget(MineLabApp(store: LocalStore()));
     expect(find.text('MineLab'), findsOneWidget);
-    expect(find.text('今日时间轴'), findsOneWidget);
-    expect(find.text('创建 CCK-8 演示实验'), findsOneWidget);
+    expect(find.text('日程安排'), findsOneWidget);
+    expect(find.text('这一天还没有实验安排'), findsOneWidget);
+    expect(find.text('CCK-8 / 细胞活性'), findsNothing);
+  });
+
+  testWidgets('experiment picker separates biological and animal templates',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(MineLabApp(store: LocalStore()));
+    await tester.tap(find.text('添加实验').first);
+    await tester.pumpAndSettle();
+    expect(find.text('生物实验'), findsOneWidget);
+    expect(find.text('动物实验'), findsOneWidget);
+    expect(find.text('我的模板'), findsOneWidget);
+    expect(find.text('CCK-8 / 细胞活性'), findsOneWidget);
+    await tester.tap(find.text('动物实验'));
+    await tester.pumpAndSettle();
+    expect(find.text('动物实验项目'), findsOneWidget);
+    expect(find.textContaining('伦理审批'), findsOneWidget);
   });
 }
