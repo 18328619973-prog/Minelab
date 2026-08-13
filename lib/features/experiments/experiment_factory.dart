@@ -24,7 +24,13 @@ ExperimentInstance createFromTemplate(ExperimentTemplate template,
         timeMode: source.timeMode,
         offsetMinutes: source.offsetMinutes,
         dependsOnId: source.dependsOnId,
-        linkedTool: source.linkedTool));
+        linkedTool: source.linkedTool,
+        checklist: source.checklist
+            .asMap()
+            .entries
+            .map((entry) => ChecklistItem(
+                id: '${source.id}-item-${entry.key}', title: entry.value))
+            .toList()));
   }
   return ExperimentInstance(
       id: id,

@@ -4,22 +4,37 @@ import 'package:minelab/features/experiments/models.dart';
 import 'package:minelab/features/experiments/template_catalog.dart';
 
 void main() {
-  test('CCK-8 template creates five steps and relative offsets', () {
-    final e =
+  test('CCK-8 template creates preparation and workflow steps', () {
+    final experiment =
         createFromTemplate(cck8Template(), startDate: DateTime(2026, 8, 12));
-    expect(e.steps, hasLength(5));
-    expect(e.steps[2].plannedAt, DateTime(2026, 8, 12, 13));
-    expect(e.steps[4].dependsOnId, 'read');
+    expect(experiment.steps, hasLength(6));
+    expect(experiment.steps.first.title, '物品准备');
+    expect(experiment.steps.first.checklist, hasLength(7));
+    expect(experiment.steps[3].plannedAt, DateTime(2026, 8, 12, 13));
+    expect(experiment.steps[5].dependsOnId, 'read');
   });
 
   test('late completion shifts the entire dependent chain', () {
-    final e =
+    final experiment =
         createFromTemplate(cck8Template(), startDate: DateTime(2026, 8, 12));
-    completeStep(e, e.steps[1], completedAt: DateTime(2026, 8, 12, 10));
-    expect(e.steps[2].plannedAt, DateTime(2026, 8, 12, 14));
-    expect(e.steps[3].plannedAt, DateTime(2026, 8, 12, 16));
-    expect(e.steps[4].plannedAt, DateTime(2026, 8, 12, 16, 30));
-    expect(e.steps[2].status, StepStatus.pending);
+    completeStep(experiment, experiment.steps[2],
+        completedAt: DateTime(2026, 8, 12, 10));
+    expect(experiment.steps[3].plannedAt, DateTime(2026, 8, 12, 14));
+    expect(experiment.steps[4].plannedAt, DateTime(2026, 8, 12, 16));
+    expect(experiment.steps[5].plannedAt, DateTime(2026, 8, 12, 16, 30));
+    expect(experiment.steps[3].status, StepStatus.pending);
+  });
+
+  test('instantiated checklist can change without changing template', () {
+    final template = cck8Template();
+    final experiment =
+        createFromTemplate(template, startDate: DateTime(2026, 8, 12));
+    experiment.steps.first.checklist.first.title = '本次实验自定义物品';
+    experiment.steps.first.checklist
+        .add(ChecklistItem(id: 'extra', title: '额外物品'));
+    expect(template.steps.first.checklist.first, '细胞与培养板');
+    expect(template.steps.first.checklist, hasLength(7));
+    expect(experiment.steps.first.checklist, hasLength(8));
   });
 
   test('built-in catalog contains biological, animal and custom templates', () {

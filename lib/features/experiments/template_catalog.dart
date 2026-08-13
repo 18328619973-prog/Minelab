@@ -12,7 +12,6 @@ List<ExperimentTemplate> builtInTemplates() => [
           '反应体系、扩增和结果记录', ['样本与引物确认', '配制反应体系', '上机扩增', '结果记录']),
       _template('western-blot', 'Western Blot', const Color(0xFFBFD3EA),
           '样本、上样、电泳、转膜和成像', [
-        '实验准备',
         '蛋白样本定量',
         '配制上样体系',
         'SDS-PAGE 电泳',
@@ -70,7 +69,7 @@ ExperimentTemplate _template(String id, String name, Color color,
       name: name,
       color: color,
       summary: summary,
-      steps: _steps(titles),
+      steps: _steps(['物品准备', ...titles], checklist: _checklistFor(id)),
     );
 
 ExperimentTemplate _animalTemplate(
@@ -81,10 +80,11 @@ ExperimentTemplate _animalTemplate(
       color: const Color(0xFFC7DDE2),
       domain: ExperimentDomain.animal,
       summary: summary,
-      steps: _steps(titles),
+      steps: _steps(['物品与资料准备', ...titles], checklist: _checklistFor(id)),
     );
 
-List<TemplateStep> _steps(List<String> titles) =>
+List<TemplateStep> _steps(List<String> titles,
+        {List<String> checklist = const []}) =>
     List.generate(titles.length, (index) {
       final id = 'step-${index + 1}';
       if (index == 0) {
@@ -94,7 +94,8 @@ List<TemplateStep> _steps(List<String> titles) =>
             description: '系统建议项，可按实验室 SOP 修改',
             stepType: StepType.operation,
             timeMode: TimeMode.absolute,
-            plannedTime: const TimeOfDay(hour: 9, minute: 0));
+            plannedTime: const TimeOfDay(hour: 9, minute: 0),
+            checklist: checklist);
       }
       return TemplateStep(
           id: id,
@@ -106,3 +107,79 @@ List<TemplateStep> _steps(List<String> titles) =>
           offsetMinutes: 60,
           dependsOnId: 'step-$index');
     });
+
+List<String> _checklistFor(String id) => switch (id) {
+      'cell-culture' => ['细胞培养物', '培养基', 'PBS', '培养皿或培养板', '移液器与无菌枪头', '废液容器'],
+      'cell-passage' => [
+          '待传代细胞',
+          '完全培养基',
+          'PBS',
+          '消化液',
+          '离心管',
+          '细胞计数用品',
+          '培养容器'
+        ],
+      'pcr-qpcr' => [
+          '核酸样本',
+          '引物',
+          '反应预混液',
+          '无核酸酶水',
+          'PCR 管或板',
+          '封板膜',
+          '移液器与滤芯枪头'
+        ],
+      'western-blot' => [
+          '蛋白样本',
+          '定量试剂',
+          '上样缓冲液',
+          '凝胶及电泳缓冲液',
+          '转膜耗材',
+          '封闭液',
+          '一抗与二抗',
+          '显影或成像试剂'
+        ],
+      'rna-extraction' => [
+          '待提取样本',
+          'RNA 提取试剂',
+          '无 RNase 耗材',
+          '无核酸酶水',
+          '反转录试剂',
+          '冰盒与样本标签'
+        ],
+      'immunofluorescence' => [
+          '待染色样本',
+          '固定液',
+          '通透液',
+          '封闭液',
+          '一抗与二抗',
+          '核染试剂',
+          '封片剂',
+          '避光容器'
+        ],
+      'animal-project' => [
+          '获批方案与记录表',
+          '动物身份及分组信息',
+          '观察记录用品',
+          '样本标签',
+          '个人防护用品',
+          '应急与人道终点信息'
+        ],
+      'animal-dosing' => [
+          '获批给药方案',
+          '动物身份与分组表',
+          '待用物品标签',
+          '给药记录表',
+          '观察记录表',
+          '个人防护用品'
+        ],
+      'animal-observation' => ['动物身份表', '体重记录表', '状态评分表', '人道终点核对表', '称量与清洁用品'],
+      'animal-sampling' => [
+          '获批采样方案',
+          '动物身份表',
+          '样本容器与标签',
+          '保存介质',
+          '转运或冷链用品',
+          '采样记录表'
+        ],
+      _ => const [],
+    };

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/local_store.dart';
 import '../experiments/experiment_factory.dart';
+import '../experiments/experiment_detail_screen.dart';
 import '../experiments/models.dart';
 import '../experiments/template_catalog.dart';
 
@@ -94,6 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _DaySchedule(
                 date: selectedDate,
                 entries: entries,
+                store: widget.store,
                 onCreate: _pickTemplate,
                 onChanged: _saveAndRefresh),
           ] else if (mode == CalendarMode.week)
@@ -218,10 +220,12 @@ class _DaySchedule extends StatelessWidget {
   const _DaySchedule(
       {required this.date,
       required this.entries,
+      required this.store,
       required this.onCreate,
       required this.onChanged});
   final DateTime date;
   final List<({ExperimentInstance experiment, ExperimentStep step})> entries;
+  final LocalStore store;
   final VoidCallback onCreate;
   final VoidCallback onChanged;
 
@@ -265,6 +269,7 @@ class _DaySchedule extends StatelessWidget {
                 return _HourRow(
                     hour: hour,
                     entries: hourEntries,
+                    store: store,
                     isNow: isNow,
                     onChanged: onChanged);
               }),
@@ -319,10 +324,12 @@ class _HourRow extends StatelessWidget {
   const _HourRow(
       {required this.hour,
       required this.entries,
+      required this.store,
       required this.isNow,
       required this.onChanged});
   final int hour;
   final List<({ExperimentInstance experiment, ExperimentStep step})> entries;
+  final LocalStore store;
   final bool isNow;
   final VoidCallback onChanged;
 
@@ -359,6 +366,7 @@ class _HourRow extends StatelessWidget {
                     ...entries.map((entry) => _ScheduleCard(
                         experiment: entry.experiment,
                         step: entry.step,
+                        store: store,
                         onChanged: onChanged)),
                   ],
                 ),
@@ -371,52 +379,57 @@ class _HourRow extends StatelessWidget {
 
 class _ScheduleCard extends StatelessWidget {
   const _ScheduleCard(
-      {required this.experiment, required this.step, required this.onChanged});
+      {required this.experiment,
+      required this.step,
+      required this.store,
+      required this.onChanged});
   final ExperimentInstance experiment;
   final ExperimentStep step;
+  final LocalStore store;
   final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     final completed = step.status == StepStatus.completed;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-          color: experiment.color.withValues(alpha: completed ? .35 : .65),
-          borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.only(left: 12, right: 4),
-        onTap: () => _editTime(context),
-        title: Text(step.title,
-            style: TextStyle(
-                fontWeight: FontWeight.w700,
-                decoration: completed ? TextDecoration.lineThrough : null)),
-        subtitle: Text('${_time(step.plannedAt)} · ${experiment.name}',
-            maxLines: 1, overflow: TextOverflow.ellipsis),
-        trailing: IconButton(
-          tooltip: completed ? '已完成' : '完成步骤',
-          onPressed: completed
-              ? null
-              : () {
-                  completeStep(experiment, step);
-                  onChanged();
-                },
-          icon: Icon(
-              completed ? Icons.check_circle : Icons.radio_button_unchecked),
-          color: completed ? const Color(0xFF467D65) : const Color(0xFF53645F),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: experiment.color.withValues(alpha: completed ? .35 : .65),
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.only(left: 12, right: 4),
+          onTap: () async {
+            await Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => ExperimentDetailScreen(
+                        experiment: experiment, store: store)));
+            onChanged();
+          },
+          title: Text(step.title,
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  decoration: completed ? TextDecoration.lineThrough : null)),
+          subtitle: Text('${_time(step.plannedAt)} · ${experiment.name}',
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          trailing: IconButton(
+            tooltip: completed ? '已完成' : '完成步骤',
+            onPressed: completed
+                ? null
+                : () {
+                    completeStep(experiment, step);
+                    onChanged();
+                  },
+            icon: Icon(
+                completed ? Icons.check_circle : Icons.radio_button_unchecked),
+            color:
+                completed ? const Color(0xFF467D65) : const Color(0xFF53645F),
+          ),
         ),
       ),
     );
-  }
-
-  Future<void> _editTime(BuildContext context) async {
-    final value = await showTimePicker(
-        context: context, initialTime: TimeOfDay.fromDateTime(step.plannedAt));
-    if (value == null) return;
-    step.plannedAt = DateTime(step.plannedAt.year, step.plannedAt.month,
-        step.plannedAt.day, value.hour, value.minute);
-    onChanged();
   }
 }
 

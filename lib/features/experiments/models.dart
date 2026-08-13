@@ -28,7 +28,8 @@ class TemplateStep {
       this.plannedTime,
       this.offsetMinutes,
       this.dependsOnId,
-      this.linkedTool});
+      this.linkedTool,
+      this.checklist = const []});
   final String id;
   final String title;
   final String description;
@@ -38,6 +39,7 @@ class TemplateStep {
   final int? offsetMinutes;
   final String? dependsOnId;
   final String? linkedTool;
+  final List<String> checklist;
 }
 
 class ExperimentTemplate {
@@ -72,22 +74,38 @@ class ExperimentStep {
       this.actualStartTime,
       this.actualEndTime,
       this.notes = '',
-      this.result = ''});
+      this.result = '',
+      List<ChecklistItem>? checklist})
+      : checklist = checklist ?? [];
   final String id;
   final String experimentId;
   String title;
   String description;
-  final StepType stepType;
+  StepType stepType;
   DateTime plannedAt;
-  final TimeMode timeMode;
-  final int? offsetMinutes;
-  final String? dependsOnId;
-  final String? linkedTool;
+  TimeMode timeMode;
+  int? offsetMinutes;
+  String? dependsOnId;
+  String? linkedTool;
   StepStatus status;
   DateTime? actualStartTime;
   DateTime? actualEndTime;
   String notes;
   String result;
+  final List<ChecklistItem> checklist;
+}
+
+class ChecklistItem {
+  ChecklistItem(
+      {required this.id,
+      required this.title,
+      this.details = '',
+      this.isDone = false});
+
+  final String id;
+  String title;
+  String details;
+  bool isDone;
 }
 
 class ExperimentInstance {
@@ -120,6 +138,22 @@ ExperimentTemplate cck8Template() => const ExperimentTemplate(
       color: Color(0xFFE8B7C8),
       summary: '细胞观察、处理、孵育、读数与结果记录',
       steps: [
+        TemplateStep(
+            id: 'prepare',
+            title: '物品准备',
+            description: '逐项确认本次实验所需物品，可按实际情况编辑',
+            stepType: StepType.operation,
+            timeMode: TimeMode.absolute,
+            plannedTime: TimeOfDay(hour: 8, minute: 0),
+            checklist: [
+              '细胞与培养板',
+              '培养基',
+              'PBS',
+              'CCK-8 试剂',
+              '药物或处理试剂',
+              '移液器与枪头',
+              '酶标仪使用安排'
+            ]),
         TemplateStep(
             id: 'observe',
             title: '细胞状态观察',

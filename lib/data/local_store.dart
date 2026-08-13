@@ -59,6 +59,14 @@ class LocalStore {
                   'actualEndTime': step.actualEndTime?.toIso8601String(),
                   'notes': step.notes,
                   'result': step.result,
+                  'checklist': step.checklist
+                      .map((item) => {
+                            'id': item.id,
+                            'title': item.title,
+                            'details': item.details,
+                            'isDone': item.isDone,
+                          })
+                      .toList(),
                 })
             .toList(),
       };
@@ -96,6 +104,15 @@ class LocalStore {
                 : DateTime.parse(step['actualEndTime'] as String),
             notes: step['notes'] as String? ?? '',
             result: step['result'] as String? ?? '',
+            checklist: ((step['checklist'] as List?) ?? const []).map((raw) {
+              final item = raw as Map<String, dynamic>;
+              return ChecklistItem(
+                id: item['id'] as String,
+                title: item['title'] as String,
+                details: item['details'] as String? ?? '',
+                isDone: item['isDone'] as bool? ?? false,
+              );
+            }).toList(),
           );
         }).toList(),
       );
