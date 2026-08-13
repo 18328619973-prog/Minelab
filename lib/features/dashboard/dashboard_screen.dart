@@ -8,6 +8,13 @@ import '../experiments/template_catalog.dart';
 
 enum CalendarMode { day, week, month }
 
+typedef _CalendarItem = ({
+  ExperimentInstance experiment,
+  ExperimentStep first,
+  ExperimentStep last,
+  int order
+});
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, required this.store});
 
@@ -127,12 +134,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (_) => const _TemplatePicker(),
     );
     if (template == null) return;
-    await widget.store
-        .add(createFromTemplate(template, startDate: selectedDate));
+    final draft = createFromTemplate(template, startDate: selectedDate);
+    if (!mounted) return;
+    final created = await Navigator.push<ExperimentInstance>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => ExperimentDetailScreen(
+                experiment: draft, store: widget.store, isCreating: true)));
+    if (created == null) return;
+    await widget.store.add(created);
     if (!mounted) return;
     setState(() => mode = CalendarMode.day);
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('已添加：${template.name}')));
+        .showSnackBar(SnackBar(content: Text('已添加：${created.name}')));
   }
 
   void _saveAndRefresh() {
@@ -158,9 +172,7 @@ class _WeekStrip extends StatelessWidget {
       children: List.generate(7, (index) {
         final date = _dateOnly(start.add(Duration(days: index)));
         final selected = _sameDay(date, selectedDate);
-        final count = entries
-            .where((entry) => _sameDay(entry.step.plannedAt, date))
-            .length;
+        final count = _calendarItemsForDate(entries, date).length;
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(right: index == 6 ? 0 : 5),
@@ -231,10 +243,10 @@ class _DaySchedule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dayEntries =
-        entries.where((entry) => _sameDay(entry.step.plannedAt, date)).toList();
-    final done = dayEntries
-        .where((entry) => entry.step.status == StepStatus.completed)
+    final dayItems = _calendarItemsForDate(entries, date);
+    final done = dayItems
+        .where((item) => item.experiment.steps
+            .every((step) => step.status == StepStatus.completed))
         .length;
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -251,18 +263,18 @@ class _DaySchedule extends StatelessWidget {
                             .textTheme
                             .titleLarge
                             ?.copyWith(fontWeight: FontWeight.w800))),
-                Text('$done / ${dayEntries.length} 已完成',
+                Text('$done / ${dayItems.length} 实验已完成',
                     style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
             const SizedBox(height: 12),
-            if (dayEntries.isEmpty)
+            if (dayItems.isEmpty)
               _EmptySchedule(onCreate: onCreate)
             else
               ...List.generate(13, (index) {
                 final hour = index + 8;
-                final hourEntries = dayEntries
-                    .where((entry) => entry.step.plannedAt.hour == hour)
+                final hourEntries = dayItems
+                    .where((item) => item.first.plannedAt.hour == hour)
                     .toList();
                 final isNow = _sameDay(date, DateTime.now()) &&
                     DateTime.now().hour == hour;
@@ -328,7 +340,7 @@ class _HourRow extends StatelessWidget {
       required this.isNow,
       required this.onChanged});
   final int hour;
-  final List<({ExperimentInstance experiment, ExperimentStep step})> entries;
+  final List<_CalendarItem> entries;
   final LocalStore store;
   final bool isNow;
   final VoidCallback onChanged;
@@ -363,11 +375,8 @@ class _HourRow extends StatelessWidget {
                                   color: Color(0xFFC95E50),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700))),
-                    ...entries.map((entry) => _ScheduleCard(
-                        experiment: entry.experiment,
-                        step: entry.step,
-                        store: store,
-                        onChanged: onChanged)),
+                    ...entries.map((item) => _ScheduleCard(
+                        item: item, store: store, onChanged: onChanged)),
                   ],
                 ),
               ),
@@ -379,18 +388,21 @@ class _HourRow extends StatelessWidget {
 
 class _ScheduleCard extends StatelessWidget {
   const _ScheduleCard(
-      {required this.experiment,
-      required this.step,
-      required this.store,
-      required this.onChanged});
-  final ExperimentInstance experiment;
-  final ExperimentStep step;
+      {required this.item, required this.store, required this.onChanged});
+  final _CalendarItem item;
   final LocalStore store;
   final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final completed = step.status == StepStatus.completed;
+    final experiment = item.experiment;
+    final daySteps = experiment.steps
+        .where((step) => _sameDay(step.plannedAt, item.first.plannedAt));
+    final completed =
+        daySteps.every((step) => step.status == StepStatus.completed);
+    final completedCount = experiment.steps
+        .where((step) => step.status == StepStatus.completed)
+        .length;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
@@ -408,25 +420,15 @@ class _ScheduleCard extends StatelessWidget {
                         experiment: experiment, store: store)));
             onChanged();
           },
-          title: Text(step.title,
+          title: Text('${item.order}. ${_shortName(experiment.name)}',
               style: TextStyle(
                   fontWeight: FontWeight.w700,
                   decoration: completed ? TextDecoration.lineThrough : null)),
-          subtitle: Text('${_time(step.plannedAt)} · ${experiment.name}',
-              maxLines: 1, overflow: TextOverflow.ellipsis),
-          trailing: IconButton(
-            tooltip: completed ? '已完成' : '完成步骤',
-            onPressed: completed
-                ? null
-                : () {
-                    completeStep(experiment, step);
-                    onChanged();
-                  },
-            icon: Icon(
-                completed ? Icons.check_circle : Icons.radio_button_unchecked),
-            color:
-                completed ? const Color(0xFF467D65) : const Color(0xFF53645F),
-          ),
+          subtitle: Text(
+              '${_time(item.first.plannedAt)}–${_time(item.last.plannedAt)} · $completedCount/${experiment.steps.length} 步骤',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          trailing: const Icon(Icons.chevron_right),
         ),
       ),
     );
@@ -458,9 +460,7 @@ class _WeekOverview extends StatelessWidget {
         const SizedBox(height: 12),
         ...List.generate(7, (index) {
           final date = _dateOnly(start.add(Duration(days: index)));
-          final items = entries
-              .where((entry) => _sameDay(entry.step.plannedAt, date))
-              .toList();
+          final items = _calendarItemsForDate(entries, date);
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: InkWell(
@@ -492,11 +492,11 @@ class _WeekOverview extends StatelessWidget {
                                 runSpacing: 6,
                                 children: items
                                     .take(5)
-                                    .map((entry) => Chip(
-                                        backgroundColor: entry.experiment.color
+                                    .map((item) => Chip(
+                                        backgroundColor: item.experiment.color
                                             .withValues(alpha: .55),
                                         label: Text(
-                                            '${_time(entry.step.plannedAt)} ${entry.step.title}')))
+                                            '${item.order}. ${_shortName(item.experiment.name)}')))
                                     .toList())),
                   ],
                 ),
@@ -561,9 +561,7 @@ class _MonthOverview extends StatelessWidget {
               mainAxisSpacing: 4),
           itemBuilder: (context, index) {
             final date = _dateOnly(gridStart.add(Duration(days: index)));
-            final items = entries
-                .where((entry) => _sameDay(entry.step.plannedAt, date))
-                .toList();
+            final items = _calendarItemsForDate(entries, date);
             final inMonth = date.month == selectedDate.month;
             return InkWell(
               onTap: () => onSelect(date),
@@ -585,12 +583,20 @@ class _MonthOverview extends StatelessWidget {
                                 ? const Color(0xFF263732)
                                 : const Color(0xFFB5BAB8))),
                     const SizedBox(height: 5),
-                    ...items.take(3).map((entry) => Container(
+                    ...items.take(3).map((item) => Container(
                         margin: const EdgeInsets.only(bottom: 3),
-                        height: 6,
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 3, vertical: 2),
                         decoration: BoxDecoration(
-                            color: entry.experiment.color,
-                            borderRadius: BorderRadius.circular(6)))),
+                            color: item.experiment.color.withValues(alpha: .72),
+                            borderRadius: BorderRadius.circular(5)),
+                        child: Text(
+                            '${item.order}.${_shortName(item.experiment.name)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 8, fontWeight: FontWeight.w700)))),
                     if (items.length > 3)
                       Text('+${items.length - 3}',
                           style: const TextStyle(fontSize: 9)),
@@ -723,3 +729,31 @@ String _time(DateTime value) =>
     '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 String _fullDate(DateTime value) =>
     '${value.year}年${value.month}月${value.day}日 · 星期${_weekdays[value.weekday - 1]}';
+
+List<_CalendarItem> _calendarItemsForDate(
+    List<({ExperimentInstance experiment, ExperimentStep step})> entries,
+    DateTime date) {
+  final grouped =
+      <String, List<({ExperimentInstance experiment, ExperimentStep step})>>{};
+  for (final entry in entries) {
+    if (!_sameDay(entry.step.plannedAt, date)) continue;
+    grouped.putIfAbsent(entry.experiment.id, () => []).add(entry);
+  }
+  final groups = grouped.values.toList()
+    ..sort((a, b) => a.first.step.plannedAt.compareTo(b.first.step.plannedAt));
+  return groups.asMap().entries.map((entry) {
+    final steps = entry.value.map((value) => value.step).toList()
+      ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+    return (
+      experiment: entry.value.first.experiment,
+      first: steps.first,
+      last: steps.last,
+      order: entry.key + 1,
+    );
+  }).toList();
+}
+
+String _shortName(String name) {
+  final slash = name.indexOf(' / ');
+  return slash == -1 ? name : name.substring(0, slash);
+}

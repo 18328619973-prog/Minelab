@@ -32,6 +32,13 @@ class LocalStore {
     await save();
   }
 
+  Future<void> replace(String id, ExperimentInstance replacement) async {
+    final index = experiments.indexWhere((experiment) => experiment.id == id);
+    if (index == -1) return;
+    experiments[index] = replacement;
+    await save();
+  }
+
   Map<String, dynamic> _toJson(ExperimentInstance experiment) => {
         'id': experiment.id,
         'templateId': experiment.templateId,
@@ -59,6 +66,7 @@ class LocalStore {
                   'actualEndTime': step.actualEndTime?.toIso8601String(),
                   'notes': step.notes,
                   'result': step.result,
+                  'reminderEnabled': step.reminderEnabled,
                   'checklist': step.checklist
                       .map((item) => {
                             'id': item.id,
@@ -104,6 +112,7 @@ class LocalStore {
                 : DateTime.parse(step['actualEndTime'] as String),
             notes: step['notes'] as String? ?? '',
             result: step['result'] as String? ?? '',
+            reminderEnabled: step['reminderEnabled'] as bool? ?? false,
             checklist: ((step['checklist'] as List?) ?? const []).map((raw) {
               final item = raw as Map<String, dynamic>;
               return ChecklistItem(

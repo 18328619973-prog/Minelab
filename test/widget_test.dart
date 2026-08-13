@@ -27,6 +27,29 @@ void main() {
     expect(find.textContaining('伦理审批'), findsOneWidget);
   });
 
+  testWidgets('template creates a draft and saves an experiment-level card',
+      (tester) async {
+    final store = LocalStore();
+    await tester.pumpWidget(MineLabApp(store: store));
+    await tester.tap(find.text('添加实验').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CCK-8 / 细胞活性'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑实验计划'), findsOneWidget);
+    expect(store.experiments, isEmpty);
+    expect(find.byTooltip('开启提醒'), findsWidgets);
+    await tester.tap(find.byTooltip('开启提醒').first);
+    await tester.pump();
+    expect(find.byTooltip('关闭提醒'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '保存').first);
+    await tester.pumpAndSettle();
+    expect(store.experiments, hasLength(1));
+    expect(store.experiments.first.steps.first.reminderEnabled, isTrue);
+    expect(find.text('1. CCK-8'), findsOneWidget);
+  });
+
   testWidgets('created experiment opens steps and preparation checklist',
       (tester) async {
     final store = LocalStore();

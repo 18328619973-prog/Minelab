@@ -4,13 +4,18 @@ import '../../data/local_store.dart';
 import 'checklist_screen.dart';
 import 'experiment_factory.dart';
 import 'models.dart';
+import 'step_type_badge.dart';
 
 class ExperimentDetailScreen extends StatefulWidget {
   const ExperimentDetailScreen(
-      {super.key, required this.experiment, required this.store});
+      {super.key,
+      required this.experiment,
+      required this.store,
+      this.isCreating = false});
 
   final ExperimentInstance experiment;
   final LocalStore store;
+  final bool isCreating;
 
   @override
   State<ExperimentDetailScreen> createState() => _ExperimentDetailScreenState();
@@ -19,7 +24,7 @@ class ExperimentDetailScreen extends StatefulWidget {
 class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   Future<void> _save() async {
     setState(() {});
-    await widget.store.save();
+    if (!widget.isCreating) await widget.store.save();
   }
 
   @override
@@ -30,17 +35,39 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
         .length;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('实验详情'),
+        title: Text(widget.isCreating ? '编辑实验计划' : '实验详情'),
         actions: [
-          IconButton(
-              tooltip: '编辑实验名称',
-              onPressed: _editExperiment,
-              icon: const Icon(Icons.edit_outlined))
+          if (widget.isCreating)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilledButton.icon(
+                  onPressed: () => Navigator.pop(context, widget.experiment),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('保存')),
+            )
+          else
+            IconButton(
+                tooltip: '编辑实验名称',
+                onPressed: _editExperiment,
+                icon: const Icon(Icons.edit_outlined))
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
         children: [
+          if (widget.isCreating)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFEAF2EF),
+                  borderRadius: BorderRadius.circular(14)),
+              child: const Row(children: [
+                Icon(Icons.edit_calendar_outlined, color: Color(0xFF426B61)),
+                SizedBox(width: 10),
+                Expanded(child: Text('请先检查名称、步骤、时间和提醒；点击保存后才会加入首页日历。')),
+              ]),
+            ),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(18),
@@ -60,7 +87,12 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                               style: Theme.of(context)
                                   .textTheme
                                   .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.w800)))
+                                  ?.copyWith(fontWeight: FontWeight.w800))),
+                      if (widget.isCreating)
+                        IconButton(
+                            tooltip: '编辑实验名称',
+                            onPressed: _editExperiment,
+                            icon: const Icon(Icons.edit_outlined))
                     ]),
                     const SizedBox(height: 12),
                     Text('开始日期：${_date(experiment.startedAt)}'),
@@ -98,6 +130,13 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
               onPressed: _addStep,
               icon: const Icon(Icons.add),
               label: const Text('添加步骤')),
+          if (widget.isCreating) ...[
+            const SizedBox(height: 10),
+            FilledButton.icon(
+                onPressed: () => Navigator.pop(context, widget.experiment),
+                icon: const Icon(Icons.check),
+                label: const Text('保存实验并加入日历')),
+          ],
         ],
       ),
     );
@@ -191,7 +230,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                 decoration: const InputDecoration(labelText: '步骤类型'),
                 items: StepType.values
                     .map((value) => DropdownMenuItem(
-                        value: value, child: Text(_stepType(value))))
+                        value: value, child: Text(stepTypeLabel(value))))
                     .toList(),
                 onChanged: (value) {
                   if (value != null) setDialogState(() => type = value);
@@ -292,28 +331,50 @@ class _StepCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         decoration:
                             complete ? TextDecoration.lineThrough : null))),
-            IconButton(
-                tooltip: '编辑步骤',
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined)),
-            IconButton(
-                tooltip: complete ? '已完成' : '完成步骤',
-                onPressed: complete
-                    ? null
-                    : () {
-                        completeStep(experiment, step);
-                        onChanged();
-                      },
-                icon: Icon(complete
-                    ? Icons.check_circle
-                    : Icons.radio_button_unchecked),
-                color: complete ? const Color(0xFF467D65) : null),
+            StepTypeBadge(type: step.stepType),
+            const SizedBox(width: 5),
+            IconButton.filledTonal(
+              tooltip: step.reminderEnabled ? '关闭提醒' : '开启提醒',
+              onPressed: () {
+                step.reminderEnabled = !step.reminderEnabled;
+                onChanged();
+              },
+              style: IconButton.styleFrom(
+                  backgroundColor: step.reminderEnabled
+                      ? const Color(0xFFFFE4C6)
+                      : const Color(0xFFF0F2F1),
+                  foregroundColor: step.reminderEnabled
+                      ? const Color(0xFF9A6844)
+                      : const Color(0xFF6C7672)),
+              icon: Icon(step.reminderEnabled
+                  ? Icons.notifications_active
+                  : Icons.notifications_none),
+            ),
           ]),
           Padding(
               padding: const EdgeInsets.only(left: 54),
-              child: Text(
-                  '${_date(step.plannedAt)} ${_time(step.plannedAt)} · ${_stepType(step.stepType)}',
-                  style: const TextStyle(color: Color(0xFF737C78)))),
+              child: Row(children: [
+                Expanded(
+                    child: Text(
+                        '${_date(step.plannedAt)} ${_time(step.plannedAt)}',
+                        style: const TextStyle(color: Color(0xFF737C78)))),
+                IconButton(
+                    tooltip: '编辑步骤',
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined)),
+                IconButton(
+                    tooltip: complete ? '已完成' : '完成步骤',
+                    onPressed: complete
+                        ? null
+                        : () {
+                            completeStep(experiment, step);
+                            onChanged();
+                          },
+                    icon: Icon(complete
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked),
+                    color: complete ? const Color(0xFF467D65) : null),
+              ])),
           if (step.description.isNotEmpty)
             Padding(
                 padding: const EdgeInsets.only(left: 54, top: 7),
@@ -383,13 +444,4 @@ String _domain(ExperimentDomain value) => switch (value) {
       ExperimentDomain.biological => '生物实验',
       ExperimentDomain.animal => '动物实验',
       ExperimentDomain.custom => '自定义实验'
-    };
-String _stepType(StepType value) => switch (value) {
-      StepType.operation => '操作',
-      StepType.observation => '观察',
-      StepType.incubation => '培养 / 孵育',
-      StepType.timer => '计时',
-      StepType.calculation => '计算',
-      StepType.instrument => '仪器',
-      StepType.result => '结果'
     };

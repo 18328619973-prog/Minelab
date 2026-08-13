@@ -75,6 +75,7 @@ class ExperimentStep {
       this.actualEndTime,
       this.notes = '',
       this.result = '',
+      this.reminderEnabled = false,
       List<ChecklistItem>? checklist})
       : checklist = checklist ?? [];
   final String id;
@@ -92,6 +93,7 @@ class ExperimentStep {
   DateTime? actualEndTime;
   String notes;
   String result;
+  bool reminderEnabled;
   final List<ChecklistItem> checklist;
 }
 
