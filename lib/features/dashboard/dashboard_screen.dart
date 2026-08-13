@@ -1,0 +1,22 @@
+import 'package:flutter/material.dart';
+import '../../data/local_store.dart';
+import '../experiments/experiment_factory.dart';
+import '../experiments/models.dart';
+
+class DashboardScreen extends StatefulWidget { const DashboardScreen({super.key, required this.store}); final LocalStore store; @override State<DashboardScreen> createState() => _DashboardScreenState(); }
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override Widget build(BuildContext context) {
+    final steps = widget.store.experiments.expand((e) => e.steps).toList()..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+    final done = steps.where((s) => s.status == StepStatus.completed).length;
+    return SafeArea(child: ListView(padding: const EdgeInsets.fromLTRB(20, 24, 20, 28), children: [Text('MineLab', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)), Text(_dateLabel(DateTime.now()), style: Theme.of(context).textTheme.titleMedium), const SizedBox(height: 20), Row(children: [Expanded(child: _Metric(label: '今日实验', value: '${widget.store.experiments.length}')), const SizedBox(width: 12), Expanded(child: _Metric(label: '完成步骤', value: '$done / ${steps.length}'))]), const SizedBox(height: 28), Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('今日时间轴', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)), FilledButton.icon(onPressed: _create, icon: const Icon(Icons.add), label: const Text('新实验'))]), const SizedBox(height: 12), if (steps.isEmpty) _Empty(onCreate: _create) else ...steps.map((s) => _StepCard(step: s, experiment: widget.store.experiments.firstWhere((e) => e.id == s.experimentId), onChanged: () { setState(() {}); widget.store.save(); }))]));
+  }
+  Future<void> _create() async { await widget.store.add(createFromTemplate(cck8Template())); setState(() {}); }
+  String _dateLabel(DateTime d) => '${d.month}月${d.day}日 · ${['一', '二', '三', '四', '五', '六', '日'][d.weekday - 1]}';
+}
+class _Metric extends StatelessWidget { const _Metric({required this.label, required this.value}); final String label; final String value; @override Widget build(BuildContext c) => Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label), const SizedBox(height: 4), Text(value, style: Theme.of(c).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700))]))); }
+class _Empty extends StatelessWidget { const _Empty({required this.onCreate}); final VoidCallback onCreate; @override Widget build(BuildContext c) => Card(child: Padding(padding: const EdgeInsets.all(28), child: Column(children: [const Icon(Icons.timeline, size: 48), const SizedBox(height: 12), const Text('还没有安排实验'), const SizedBox(height: 12), OutlinedButton(onPressed: onCreate, child: const Text('创建 CCK-8 演示实验'))]))); }
+class _StepCard extends StatelessWidget {
+  const _StepCard({required this.step, required this.experiment, required this.onChanged}); final ExperimentStep step; final ExperimentInstance experiment; final VoidCallback onChanged;
+  @override Widget build(BuildContext c) { final done = step.status == StepStatus.completed; return Card(margin: const EdgeInsets.only(bottom: 10), child: InkWell(onTap: () => _editTime(c), child: Padding(padding: const EdgeInsets.all(14), child: Row(children: [Container(width: 8, height: 64, decoration: BoxDecoration(color: experiment.color, borderRadius: BorderRadius.circular(8))), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${step.plannedAt.hour.toString().padLeft(2, '0')}:${step.plannedAt.minute.toString().padLeft(2, '0')}'), Text(step.title, style: Theme.of(c).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)), Text(experiment.name, style: Theme.of(c).textTheme.bodySmall), if (step.timeMode == TimeMode.relative) Text('相对步骤 · ${step.offsetMinutes} min', style: Theme.of(c).textTheme.bodySmall)])), IconButton(onPressed: done ? null : () { completeStep(experiment, step); onChanged(); }, icon: Icon(done ? Icons.check_circle : Icons.radio_button_unchecked), color: done ? Colors.green : null)])))); }
+  Future<void> _editTime(BuildContext c) async { final t = await showTimePicker(context: c, initialTime: TimeOfDay.fromDateTime(step.plannedAt)); if (t == null) return; step.plannedAt = DateTime(step.plannedAt.year, step.plannedAt.month, step.plannedAt.day, t.hour, t.minute); onChanged(); }
+}
